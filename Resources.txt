@@ -1,0 +1,2 @@
+https://dataedo.com/samples/html/AdventureWorks/doc/AdventureWorks_2/tables/Purchasing_PurchaseOrderDetail_174.html
+https://akela.mendelu.cz/~jprich/vyuka/db2/AdventureWorks2008_db_diagram.pdf
