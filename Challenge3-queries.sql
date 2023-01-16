@@ -1,23 +1,23 @@
 USE AdventureWorks2019;
 -- Q1 : Show the first name and the email address of customer with CompanyName 'Bike World' 
 
-SELECT p.FirstName, mail.EmailAddress
-FROM Person.Person p
+SELECT Person.FirstName, mail.EmailAddress
+FROM Person.Person 
 INNER JOIN Person.EmailAddress mail
-ON p.BusinessEntityID = mail.BusinessEntityID
-INNER JOIN Sales.Customer c
-ON c.PersonID = p.BusinessEntityID
+ON Person.BusinessEntityID = mail.BusinessEntityID
+INNER JOIN Sales.Customer
+ON Customer.PersonID = Person.BusinessEntityID
 INNER JOIN Sales.Store store
-ON  c.StoreID = store.BusinessEntityID
+ON  Customer.StoreID = store.BusinessEntityID
 WHERE store.[Name] = 'Bike World';
 
 -- Q2  : Show the CompanyName for all customers with an address in City 'Dallas'.
 SELECT DISTINCT store.[Name]
-FROM Sales.Store store
-INNER JOIN Sales.Customer c
-ON c.StoreID = store.BusinessEntityID
+FROM Sales.Store
+INNER JOIN Sales.Customer
+ON Customer.StoreID = store.BusinessEntityID
 INNER JOIN Sales.SalesOrderHeader soh
-on soh.CustomerID = c.CustomerID
+on soh.CustomerID = Customer.CustomerID
 INNER JOIN Person.[Address] [address]
 ON [address].AddressID = soh.BillToAddressID
 WHERE [address].City = 'Dallas';
@@ -34,28 +34,28 @@ WHERE product.ListPrice > 1000;
 --Q4 : Give the CompanyName of those customers with orders over $100000. Include the subtotal plus tax plus freight.
 
 SELECT store.[Name] as CompanyName
-FROM Sales.SalesOrderHeader salesHeader
-INNER JOIN Sales.Customer c
-ON c.CustomerID = salesHeader.CustomerID
+FROM Sales.SalesOrderHeader 
+INNER JOIN Sales.Customer
+ON Customer.CustomerID = SalesOrderHeader.CustomerID
 INNER JOIN Sales.Store store
-ON store.BusinessEntityID = c.StoreID
-WHERE salesHeader.TotalDue > 100000
+ON store.BusinessEntityID = Customer.StoreID
+WHERE SalesOrderHeader.TotalDue > 100000
 GROUP BY  store.Name;
 
 
 
 -- Q5 : Find the number of left racing socks ('Racing Socks, L') ordered by CompanyName 'Riding Cycles'
-SELECT SUM(sod.OrderQty)
-FROM Production.Product pr
-INNER JOIN Sales.SalesOrderDetail sod
-ON pr.ProductID = sod.ProductID
-INNER JOIN Sales.SalesOrderHeader soh
-ON soh.SalesOrderID = sod.SalesOrderID
-INNER JOIN Sales.Customer c
-ON soh.CustomerID = c.CustomerID
+SELECT SUM(SalesOrderDetail.OrderQty)
+FROM Production.Product
+INNER JOIN Sales.SalesOrderDetail
+ON Product.ProductID = SalesOrderDetail.ProductID
+INNER JOIN Sales.SalesOrderHeader
+ON SalesOrderHeader.SalesOrderID = SalesOrderDetail.SalesOrderID
+INNER JOIN Sales.Customer
+ON SalesOrderHeader.CustomerID = Customer.CustomerID
 INNER JOIN Sales.Store store
-ON c.StoreID = store.BusinessEntityID
-WHERE pr.[Name] = 'Racing Socks, L' and store.[Name] = 'Riding Cycles';
+ON Customer.StoreID = store.BusinessEntityID
+WHERE Product.[Name] = 'Racing Socks, L' and store.[Name] = 'Riding Cycles';
 
 
 -- Q6 :A "Single Item Order" is a customer order where only one item is ordered. Show the SalesOrderID and the UnitPrice for every Single Item Order.
@@ -65,9 +65,8 @@ FROM Sales.SalesOrderDetail
 INNER JOIN Sales.SalesOrderHeader
 ON Sales.SalesOrderDetail.SalesOrderID = Sales.SalesOrderHeader.SalesOrderID
 WHERE Sales.SalesOrderDetail.LineTotal = Sales.SalesOrderHeader.SubTotal;
---  Q7 :HAVING COUNT(Sales.SalesOrderDetail.SalesOrderID) = 1;
 
--- Q8 : Where did the racing socks go? List the product name and the CompanyName for all Customers who ordered ProductModel 'Racing Socks'.
+-- Q7 : Where did the racing socks go? List the product name and the CompanyName for all Customers who ordered ProductModel 'Racing Socks'.
 SELECT Production.Product.[Name] AS [Product Name] ,Sales.Store.[Name] AS [Company Name]
 FROM Production.ProductModel
 INNER JOIN Production.Product
@@ -95,8 +94,11 @@ ON Product.ProductModelID = ProductModelProductDescriptionCulture.ProductModelID
 WHERE ProductModelProductDescriptionCulture.CultureID = 'fr'  AND Product.ProductID = 736;
 
 -- Q9 :Use the SubTotal value in SaleOrderHeader to list orders from the largest to the smallest. For each order show the CompanyName and the SubTotal and the total weight of the order.
-
-SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], CONCAT(SUM(Product.[Weight]*SalesOrderDetail.OrderQty),' ', Product.WeightUnitMeasureCode) AS TotalWeight
+--CONCAT(SUM(Product.[Weight]*SalesOrderDetail.OrderQty),' ', Product.WeightUnitMeasureCode) AS TotalWeight
+SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], 
+	CASE 
+		WHEN Product.WeightUnitMeasureCode = 'G' THEN SUM(Product.[Weight] * SalesOrderDetail.OrderQty * 0.00220462)
+		ELSE SUM(Product.[Weight] * SalesOrderDetail.OrderQty) END As TotalWeight
 FROM Sales.SalesOrderHeader
 INNER JOIN Sales.Customer
 ON SalesOrderHeader.CustomerID = Customer.CustomerID
@@ -106,7 +108,20 @@ INNER JOIN Sales.SalesOrderDetail
 ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
 INNER JOIN Production.Product
 ON Product.ProductID = SalesOrderDetail.ProductID
-GROUP BY SalesOrderHeader.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name], Product.WeightUnitMeasureCode
+GROUP BY SalesOrderDetail.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name], Product.WeightUnitMeasureCode
+ORDER BY SalesOrderHeader.SubTotal DESC
+
+SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], SUM(Product.[Weight]*SalesOrderDetail.OrderQty) AS TotalWeight
+FROM Sales.SalesOrderHeader
+INNER JOIN Sales.Customer
+ON SalesOrderHeader.CustomerID = Customer.CustomerID
+INNER JOIN Sales.Store
+ON Store.BusinessEntityID = Customer.StoreID
+INNER JOIN Sales.SalesOrderDetail
+ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
+INNER JOIN Production.Product
+ON Product.ProductID = SalesOrderDetail.ProductID
+GROUP BY SalesOrderDetail.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name]
 ORDER BY SalesOrderHeader.SubTotal DESC;
 
 
