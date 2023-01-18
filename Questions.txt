@@ -27,45 +27,4 @@ List the SalesOrderNumber for the customer 'Good Toys' 'Bike World'
 List the ProductName and the quantity of what was ordered by 'Futuristic Bikes'
 List the name and addresses of companies containing the word 'Bike' (upper or lower case) and companies containing 'cycle' (upper or lower case). Ensure that the 'bike's are listed before the 'cycles's.
 Show the total order value for each CountryRegion. List by value with the highest first.
-Find the best customer in each region.
-
-
-
-
-
-WITH BestCategoryPerCity AS (
-								SELECT [Address].City, ProductCategory.[Name] AS CategoryName,COUNT(ProductCategory.[Name]) AS ProductCategoryCount
-								FROM Production.ProductCategory
-								INNER JOIN Production.ProductSubcategory
-								ON ProductCategory.ProductCategoryID = ProductSubcategory.ProductSubcategoryID
-								INNER JOIN Production.Product
-								ON Product.ProductSubcategoryID = ProductSubcategory.ProductSubcategoryID
-								INNER JOIN Sales.SalesOrderDetail
-								ON SalesOrderDetail.ProductID = Product.ProductID
-								INNER JOIN Sales.SalesOrderHeader
-								ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
-								INNER JOIN Person.[Address]
-								ON [Address].AddressID = SalesOrderHeader.ShipToAddressID
-								GROUP BY [Address].City, ProductCategory.[Name]
-								
-							),
-							mm AS (
-									SELECT TOP(1)  [Address].City, BestCategoryPerCity.ProductCategoryCount
-									FROM BestCategoryPerCity
-									INNER JOIN Person.[Address]
-									ON [Address].City = BestCategoryPerCity.City
-									ORDER BY ProductCategoryCount DESC
-									)
-
-
-
-SELECT TOP(3)  [Address].City, CONCAT(SUM(SalesOrderHeader.TotalDue),'$'), mm.ProductCategoryCount
-FROM Sales.SalesOrderHeader
-INNER JOIN Person.[Address]
-ON [Address].AddressID = SalesOrderHeader.ShipToAddressID
-INNER JOIN mm
-ON mm.City =  [Address].City
---INNER JOIN BestCategoryPerCity
---ON BestCategoryPerCity.City = [Address].City
-GROUP BY [Address].City, mm.ProductCategoryCount
-ORDER BY SUM(SalesOrderHeader.TotalDue) DESC
+Find the best customer in each region

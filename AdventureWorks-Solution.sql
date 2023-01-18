@@ -1,10 +1,10 @@
 USE AdventureWorks2019;
 -- Q1 : Show the first name and the email address of customer with CompanyName 'Bike World' 
 
-SELECT Person.FirstName, mail.EmailAddress
+SELECT Person.FirstName, EmailAddress.EmailAddress
 FROM Person.Person 
-INNER JOIN Person.EmailAddress mail
-ON Person.BusinessEntityID = mail.BusinessEntityID
+INNER JOIN Person.EmailAddress
+ON Person.BusinessEntityID = EmailAddress.BusinessEntityID
 INNER JOIN Sales.Customer
 ON Customer.PersonID = Person.BusinessEntityID
 INNER JOIN Sales.Store store
@@ -15,20 +15,27 @@ WHERE store.[Name] = 'Bike World';
 SELECT DISTINCT store.[Name]
 FROM Sales.Store
 INNER JOIN Sales.Customer
-ON Customer.StoreID = store.BusinessEntityID
-INNER JOIN Sales.SalesOrderHeader soh
-on soh.CustomerID = Customer.CustomerID
+ON Customer.StoreID = Store.BusinessEntityID
+INNER JOIN Sales.SalesOrderHeader
+on SalesOrderHeader.CustomerID = Customer.CustomerID
 INNER JOIN Person.[Address] [address]
-ON [address].AddressID = soh.BillToAddressID
+ON [address].AddressID = SalesOrderHeader.BillToAddressID
 WHERE [address].City = 'Dallas';
 
 
 --Q3 : How many items with ListPrice more than $1000 have been sold?
 SELECT COUNT(DISTINCT product.ProductID)
 FROM Production.Product product
-JOIN Sales.SalesOrderDetail sod
-ON product.ProductID = sod.ProductID
+JOIN Sales.SalesOrderDetail
+ON product.ProductID = SalesOrderDetail.ProductID
 WHERE product.ListPrice > 1000;
+-- second interpretation of the question
+SELECT SUM(SalesOrderDetail.OrderQty)
+FROM Production.Product
+INNER JOIN Sales.SalesOrderDetail
+ON Product.ProductID = SalesOrderDetail.ProductID
+WHERE Product.ListPrice > 1000
+
 
 
 --Q4 : Give the CompanyName of those customers with orders over $100000. Include the subtotal plus tax plus freight.
@@ -60,11 +67,13 @@ WHERE Product.[Name] = 'Racing Socks, L' and store.[Name] = 'Riding Cycles';
 
 -- Q6 :A "Single Item Order" is a customer order where only one item is ordered. Show the SalesOrderID and the UnitPrice for every Single Item Order.
 
-SELECT Sales.SalesOrderDetail.SalesOrderID, Sales.SalesOrderDetail.UnitPrice
+SELECT Sales.SalesOrderDetail.SalesOrderID, CONCAT(Sales.SalesOrderDetail.UnitPrice,'$')
 FROM Sales.SalesOrderDetail
 INNER JOIN Sales.SalesOrderHeader
 ON Sales.SalesOrderDetail.SalesOrderID = Sales.SalesOrderHeader.SalesOrderID
 WHERE Sales.SalesOrderDetail.LineTotal = Sales.SalesOrderHeader.SubTotal;
+/*the reason the above line is that salesOrderHeader.Subtotal = SUM(salesOrderDetail.LineTotal)
+	 and the LineTotal = UnitPrice * (1 - UnitPerDiscount)* OrderQty*/
 
 -- Q7 : Where did the racing socks go? List the product name and the CompanyName for all Customers who ordered ProductModel 'Racing Socks'.
 SELECT Production.Product.[Name] AS [Product Name] ,Sales.Store.[Name] AS [Company Name]
@@ -94,22 +103,7 @@ ON Product.ProductModelID = ProductModelProductDescriptionCulture.ProductModelID
 WHERE ProductModelProductDescriptionCulture.CultureID = 'fr'  AND Product.ProductID = 736;
 
 -- Q9 :Use the SubTotal value in SaleOrderHeader to list orders from the largest to the smallest. For each order show the CompanyName and the SubTotal and the total weight of the order.
---CONCAT(SUM(Product.[Weight]*SalesOrderDetail.OrderQty),' ', Product.WeightUnitMeasureCode) AS TotalWeight
-SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], 
-	CASE 
-		WHEN Product.WeightUnitMeasureCode = 'G' THEN SUM(Product.[Weight] * SalesOrderDetail.OrderQty * 0.00220462)
-		ELSE SUM(Product.[Weight] * SalesOrderDetail.OrderQty) END As TotalWeight
-FROM Sales.SalesOrderHeader
-INNER JOIN Sales.Customer
-ON SalesOrderHeader.CustomerID = Customer.CustomerID
-INNER JOIN Sales.Store
-ON Store.BusinessEntityID = Customer.StoreID
-INNER JOIN Sales.SalesOrderDetail
-ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
-INNER JOIN Production.Product
-ON Product.ProductID = SalesOrderDetail.ProductID
-GROUP BY SalesOrderDetail.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name], Product.WeightUnitMeasureCode
-ORDER BY SalesOrderHeader.SubTotal DESC
+
 
 SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], SUM(Product.[Weight]*SalesOrderDetail.OrderQty) AS TotalWeight
 FROM Sales.SalesOrderHeader
@@ -197,20 +191,20 @@ ORDER BY SUM(SalesOrderDetail.LineTotal) DESC;
 
 WITH SingleOrdersInRange AS
 			(SELECT	CASE 
-						WHEN SalesOrderHeader.TotalDue BETWEEN 0 AND 99.9999 THEN '0 - 99' 
-						WHEN SalesOrderHeader.TotalDue BETWEEN 100 AND 999.9999 THEN '100 - 999' 
-						WHEN SalesOrderHeader.TotalDue BETWEEN 1000 AND 9999.9999 THEN '1000 - 9999' 
-						WHEN SalesOrderHeader.TotalDue >= 10000  THEN '10000 - ' 
-					END AS [RANGE],
-					CASE 
-						WHEN SalesOrderHeader.TotalDue BETWEEN 0 AND 99.9999 THEN 1
-						WHEN SalesOrderHeader.TotalDue BETWEEN 100 AND 999.9999 THEN 2
-						WHEN SalesOrderHeader.TotalDue BETWEEN 1000 AND 9999.9999 THEN 3
-						WHEN SalesOrderHeader.TotalDue >= 10000  THEN 4
+						WHEN SalesOrderHeader.SubTotal BETWEEN 0 AND 99.9999 THEN '0 - 99' 
+						WHEN SalesOrderHeader.SubTotal BETWEEN 100 AND 999.9999 THEN '100 - 999' 
+						WHEN SalesOrderHeader.SubTotal BETWEEN 1000 AND 9999.9999 THEN '1000 - 9999' 
+						WHEN SalesOrderHeader.SubTotal >= 10000  THEN '10000 - ' 
+					END AS [RANGE],			  
+					CASE 					  
+						WHEN SalesOrderHeader.SubTotal BETWEEN 0 AND 99.9999 THEN 1
+						WHEN SalesOrderHeader.SubTotal BETWEEN 100 AND 999.9999 THEN 2
+						WHEN SalesOrderHeader.SubTotal BETWEEN 1000 AND 9999.9999 THEN 3
+						WHEN SalesOrderHeader.SubTotal >= 10000  THEN 4
 					END AS [RANK],
-			SalesOrderHeader.TotalDue
+			SalesOrderHeader.SubTotal
 			FROM Sales.SalesOrderHeader)
-SELECT [RANGE], COUNT(*) AS [Num Orders], SUM(SingleOrdersInRange.TotalDue) AS [Total Value]
+SELECT [RANGE], COUNT(*) AS [Num Orders], SUM(SingleOrdersInRange.SubTotal) AS [Total Value]
 FROM SingleOrdersInRange
 GROUP BY [RANGE], [RANK]
 ORDER BY [RANK] ASC;
@@ -218,8 +212,7 @@ ORDER BY [RANK] ASC;
 
 -- Q17: Identify the three most important cities. Show the break down of top level product category against city.
 WITH CategoryOrderedPerCity AS 
-		(
-			SELECT [Address].City, ProductCategory.[Name] AS CategoryName,
+		(SELECT [Address].City, ProductCategory.[Name] AS CategoryName,
 					COUNT(ProductCategory.[Name]) AS ProductCategoryCount, 
 					RANK() OVER (PARTITION BY [Address].City ORDER BY COUNT(ProductCategory.[Name]) DESC) AS  [RANK]
 			FROM Production.ProductCategory
@@ -235,15 +228,18 @@ WITH CategoryOrderedPerCity AS
 			ON [Address].AddressID = SalesOrderHeader.ShipToAddressID
 			GROUP BY [Address].City, ProductCategory.[Name])
 
-SELECT TOP(3)  [Address].City, CONCAT(SUM(SalesOrderHeader.TotalDue),'$') AS [Total Value Of Orders], CategoryOrderedPerCity.ProductCategoryCount
+SELECT TOP(3)  [Address].City, CONCAT(SUM(SalesOrderHeader.TotalDue),'$') AS [Total Value Of Orders], CategoryOrderedPerCity.CategoryName
 FROM Sales.SalesOrderHeader
 INNER JOIN Person.[Address]
 ON [Address].AddressID = SalesOrderHeader.ShipToAddressID
 INNER JOIN CategoryOrderedPerCity
 ON CategoryOrderedPerCity.City = [Address].City
 WHERE CategoryOrderedPerCity.[RANK] = 1
-GROUP BY [Address].City, CategoryOrderedPerCity.ProductCategoryCount
+GROUP BY [Address].City, CategoryOrderedPerCity.ProductCategoryCount, CategoryOrderedPerCity.CategoryName
 ORDER BY SUM(SalesOrderHeader.TotalDue) DESC, CategoryOrderedPerCity.ProductCategoryCount DESC;
+
+
+
 
 -- Q18 : List the SalesOrderNumber for the customer 'Good Toys' 'Bike World'
 SELECT SalesOrderHeader.SalesOrderID, Store.[Name]
@@ -252,7 +248,7 @@ INNER JOIN Sales.Customer
 ON Customer.CustomerID = SalesOrderHeader.CustomerID
 INNER JOIN Sales.Store
 ON Store.BusinessEntityID = Customer.StoreID
-WHERE Store.[Name] = 'Good Toys' OR Store.[Name] = 'Bike World'
+WHERE Store.[Name] = 'Good Toys' OR Store.[Name] = 'Bike World';
 
 -- Q19 : List the ProductName and the quantity of what was ordered by 'Futuristic Bikes'
 SELECT Product.[Name], SUM(SalesOrderDetail.OrderQty) AS [Order quantity]
@@ -270,8 +266,8 @@ GROUP BY Product.[Name];
 
 -- Q20 : List the name and addresses of companies containing the word 'Bike' (upper or lower case) and companies containing 'cycle' (upper or lower case). Ensure that the 'bike's are listed before the 'cycles's.
 
-WITH BikesAndCyclesAddresses AS(
-			SELECT Store.[Name],
+WITH BikesAndCyclesAddresses AS
+			(SELECT Store.[Name],
 			AddressLine1,
 			AddressLine2,
 			City,
@@ -285,8 +281,7 @@ WITH BikesAndCyclesAddresses AS(
 			FROM Sales.Store
 			INNER JOIN Sales.vStoreWithAddresses
 			ON Store.[Name] = vStoreWithAddresses.[Name]
-			WHERE LOWER(Store.[Name]) LIKE  '%bike%' OR LOWER(Store.[Name]) LIKE '%cycle%'
-		)
+			WHERE LOWER(Store.[Name]) LIKE  '%bike%' OR LOWER(Store.[Name]) LIKE '%cycle%')
 SELECT [Name] AS [Company Name], AddressLine1, AddressLine2, City, StateProvinceName, PostalCode, CountryRegionName
 FROM BikesAndCyclesAddresses
 ORDER BY [Rank];
@@ -306,10 +301,10 @@ GROUP BY CountryRegion.[Name];
 --Q22 : Find the best customer in each region.
 
 
-WITH RegionOrderedCustomers AS (
-		SELECT	CountryRegion.[Name],
+WITH RegionOrderedCustomers AS 
+		(SELECT	CountryRegion.[Name],
 				Customer.CustomerID, 
-				SUM(SalesOrderHeader.TotalDue)AS [Total Ordered Value], 
+				CONCAT(SUM(SalesOrderHeader.TotalDue),'$') AS [Total Ordered Value], 
 				RANK() OVER (PARTITION BY CountryRegion.[Name] ORDER BY  SUM(SalesOrderHeader.TotalDue) DESC) AS [RANK]
 		FROM  Sales.SalesOrderHeader
 		INNER JOIN Sales.Customer
@@ -325,7 +320,39 @@ WITH RegionOrderedCustomers AS (
 SELECT RegionOrderedCustomers.[Name], RegionOrderedCustomers.CustomerID, RegionOrderedCustomers.[Total Ordered Value]
 FROM RegionOrderedCustomers
 WHERE RegionOrderedCustomers.[RANK] = 1
-ORDER BY RegionOrderedCustomers.[Total Ordered Value] DESC
+ORDER BY RegionOrderedCustomers.[Total Ordered Value] DESC;
 
 
 
+
+-- Q9 other solutions
+--CONCAT(SUM(Product.[Weight]*SalesOrderDetail.OrderQty),' ', Product.WeightUnitMeasureCode) AS TotalWeight
+--SELECT CONCAT(Sales.SalesOrderHeader.SubTotal,'$'), Store.[Name], 
+--	CASE 
+--		WHEN Product.WeightUnitMeasureCode = 'G' THEN SUM(Product.[Weight] * SalesOrderDetail.OrderQty)*0.00220462
+--		WHEN Product.WeightUnitMeasureCode ='LB' THEN SUM(Product.[Weight] * SalesOrderDetail.OrderQty) END As TotalWeight
+--FROM Sales.SalesOrderHeader
+--INNER JOIN Sales.Customer
+--ON SalesOrderHeader.CustomerID = Customer.CustomerID
+--INNER JOIN Sales.Store
+--ON Store.BusinessEntityID = Customer.StoreID
+--INNER JOIN Sales.SalesOrderDetail
+--ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
+--INNER JOIN Production.Product
+--ON Product.ProductID = SalesOrderDetail.ProductID
+--GROUP BY SalesOrderDetail.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name], Product.WeightUnitMeasureCode
+--ORDER BY SalesOrderHeader.SubTotal DESC
+
+--	SELECT Sales.SalesOrderHeader.SubTotal, Store.[Name], CONCAT(SUM(Product.[Weight] * SalesOrderDetail.OrderQty),' ',Product.WeightUnitMeasureCode)
+--	FROM Sales.SalesOrderHeader
+--	INNER JOIN Sales.Customer
+--	ON SalesOrderHeader.CustomerID = Customer.CustomerID
+--	INNER JOIN Sales.Store
+--	ON Store.BusinessEntityID = Customer.StoreID
+--	INNER JOIN Sales.SalesOrderDetail
+--	ON SalesOrderDetail.SalesOrderID = SalesOrderHeader.SalesOrderID
+--	INNER JOIN Production.Product
+--	ON Product.ProductID = SalesOrderDetail.ProductID
+--	WHERE Product.[Weight] IS NOT NULL
+--	GROUP BY SalesOrderDetail.SalesOrderID, SalesOrderHeader.SubTotal, Store.[Name], Product.WeightUnitMeasureCode
+--	ORDER BY SalesOrderHeader.SubTotal DESC
